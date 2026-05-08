@@ -41,6 +41,7 @@ export default function HomePage() {
   const [inputText, setInputText] = useState("");
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
+  const [voiceHint, setVoiceHint] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -50,6 +51,7 @@ export default function HomePage() {
   const [inputMode, setInputMode] = useState<InputMode>("voice");
   const recognitionRef = useRef<ReturnType<typeof createChineseSpeechRecognition>>(null);
   const transcriptRef = useRef("");
+  const stoppedByUserRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const lastAssistantMessage = useMemo(
@@ -120,6 +122,7 @@ export default function HomePage() {
     }
 
     setError("");
+    setVoiceHint("");
     setTranscript("");
     setInputText("");
     setIsThinking(true);
@@ -162,16 +165,28 @@ export default function HomePage() {
 
   function startListening() {
     setError("");
+    setVoiceHint("");
     setTranscript("");
     transcriptRef.current = "";
+    stoppedByUserRef.current = false;
 
     const recognition = createChineseSpeechRecognition({
       onResult: (text) => {
         transcriptRef.current = text;
         setTranscript(text);
+        if (text) {
+          setVoiceHint("");
+        }
       },
-      onError: (message) => {
-        setError(message);
+      onError: (message, errorCode) => {
+        if (errorCode === "no-speech" || errorCode === "aborted") {
+          if (!transcriptRef.current.trim()) {
+            setVoiceHint(stoppedByUserRef.current ? "按住说话，说完再松开。" : message);
+          }
+        } else {
+          setError(message);
+        }
+
         setIsListening(false);
       },
       onEnd: () => {
@@ -197,13 +212,17 @@ export default function HomePage() {
   }
 
   function stopListening() {
+    stoppedByUserRef.current = true;
     recognitionRef.current?.stop();
     setIsListening(false);
 
     const spokenText = transcriptRef.current.trim();
 
     if (spokenText) {
+      setVoiceHint("");
       void sendMessage(spokenText);
+    } else {
+      setVoiceHint("按住说话，说完再松开。");
     }
   }
 
@@ -214,10 +233,12 @@ export default function HomePage() {
 
   function toggleInputMode() {
     if (isListening) {
+      stoppedByUserRef.current = true;
       recognitionRef.current?.stop();
       setIsListening(false);
     }
 
+    setVoiceHint("");
     setInputMode((mode) => (mode === "voice" ? "text" : "voice"));
   }
 
@@ -242,6 +263,7 @@ export default function HomePage() {
     setMessages([]);
     setTranscript("");
     setError("");
+    setVoiceHint("");
     setIsSpeaking(false);
     window.localStorage.removeItem(STORAGE_KEY);
   }
@@ -389,10 +411,16 @@ export default function HomePage() {
             </div>
           ) : null}
 
+          {voiceHint && !error ? (
+            <div className="rounded-[1rem] bg-[#fff3d9] px-4 py-3 text-[1rem] font-bold leading-7 text-[#5b4630]">
+              {voiceHint}
+            </div>
+          ) : null}
+
           <button
             type="button"
             onClick={handleClearMessages}
-            className="min-h-12 w-full rounded-[1rem] border-2 border-[#b93815] bg-white px-4 text-[1rem] font-bold text-[#b93815]"
+            className="min-h-10 w-full rounded-[0.9rem] border border-[#d9cbb4] bg-white px-4 text-[0.95rem] font-bold text-[#8a3a24]"
           >
             清空聊天
           </button>

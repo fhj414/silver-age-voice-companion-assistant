@@ -4,7 +4,7 @@ export type SpeechSupport = {
 };
 
 export type SpeechRecognitionResultCallback = (text: string, isFinal: boolean) => void;
-export type SpeechRecognitionErrorCallback = (message: string) => void;
+export type SpeechRecognitionErrorCallback = (message: string, errorCode: string) => void;
 export type SpeechRecognitionEndCallback = () => void;
 
 interface BrowserSpeechRecognitionEvent extends Event {
@@ -104,12 +104,19 @@ export function createChineseSpeechRecognition(options: {
   };
 
   recognition.onerror = (event) => {
-    const friendlyMessage =
-      event.error === "not-allowed"
-        ? "需要允许浏览器使用麦克风，您也可以直接打字。"
-        : "刚才没有听清楚，请再试一次，或直接打字。";
+    const friendlyMessage = (() => {
+      if (event.error === "not-allowed") {
+        return "需要允许浏览器使用麦克风，您也可以直接打字。";
+      }
 
-    options.onError(friendlyMessage);
+      if (event.error === "no-speech" || event.error === "aborted") {
+        return "按住说话，说完再松开。";
+      }
+
+      return "刚才没有听清楚，请再试一次。";
+    })();
+
+    options.onError(friendlyMessage, event.error);
   };
 
   recognition.onend = options.onEnd;
