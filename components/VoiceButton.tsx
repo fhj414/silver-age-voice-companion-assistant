@@ -24,12 +24,46 @@ export function VoiceButton({
   return (
     <button
       type="button"
-      onClick={isListening ? onStop : onStart}
+      onPointerDown={(event) => {
+        if (disabled || isListening) {
+          return;
+        }
+
+        event.currentTarget.setPointerCapture(event.pointerId);
+        onStart();
+      }}
+      onPointerUp={(event) => {
+        if (!isListening) {
+          return;
+        }
+
+        event.currentTarget.releasePointerCapture(event.pointerId);
+        onStop();
+      }}
+      onPointerCancel={onStop}
+      onKeyDown={(event) => {
+        if (disabled || isListening || (event.key !== " " && event.key !== "Enter")) {
+          return;
+        }
+
+        event.preventDefault();
+        onStart();
+      }}
+      onKeyUp={(event) => {
+        if (!isListening || (event.key !== " " && event.key !== "Enter")) {
+          return;
+        }
+
+        event.preventDefault();
+        onStop();
+      }}
+      onContextMenu={(event) => event.preventDefault()}
       disabled={disabled}
-      className={`flex min-h-20 w-full items-center justify-center gap-3 rounded-[1.4rem] px-6 text-[1.25rem] font-bold text-white shadow-lg transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#c8b8a0] ${
+      className={`flex min-h-20 w-full select-none touch-none items-center justify-center gap-3 rounded-[1.4rem] px-6 text-[1.25rem] font-bold text-white shadow-lg transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#c8b8a0] ${
         isListening ? "bg-[#b93815]" : "bg-[#126145]"
       }`}
       aria-pressed={isListening}
+      aria-label={isListening ? "松开发送语音" : "按住说话"}
     >
       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20" aria-hidden="true">
         {isListening ? (
@@ -44,7 +78,7 @@ export function VoiceButton({
           </svg>
         )}
       </span>
-      <span>{isListening ? "停止说话" : "开始说话"}</span>
+      <span>{isListening ? "松开发送" : "按住说话"}</span>
     </button>
   );
 }

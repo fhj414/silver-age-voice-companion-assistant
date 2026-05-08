@@ -18,6 +18,7 @@ const AUTO_SPEAK_KEY = "silver-age-auto-speak";
 const SENIOR_MODE_KEY = "silver-age-senior-mode";
 
 const quickQuestions = ["今天吃什么？", "帮我看看这是不是诈骗", "教我怎么用微信", "陪我聊聊天"];
+type InputMode = "voice" | "text";
 
 function createMessage(role: ChatMessageType["role"], content: string): ChatMessageType {
   return {
@@ -46,7 +47,9 @@ export default function HomePage() {
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [seniorMode, setSeniorMode] = useState(false);
   const [speechRecognitionSupported, setSpeechRecognitionSupported] = useState(true);
+  const [inputMode, setInputMode] = useState<InputMode>("voice");
   const recognitionRef = useRef<ReturnType<typeof createChineseSpeechRecognition>>(null);
+  const transcriptRef = useRef("");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const lastAssistantMessage = useMemo(
@@ -57,6 +60,9 @@ export default function HomePage() {
   useEffect(() => {
     const support = getSpeechSupport();
     setSpeechRecognitionSupported(support.recognition);
+    if (!support.recognition) {
+      setInputMode("text");
+    }
     const cleanupSpeechVoices = warmUpSpeechVoices();
 
     const savedMessages = window.localStorage.getItem(STORAGE_KEY);
@@ -157,14 +163,12 @@ export default function HomePage() {
   function startListening() {
     setError("");
     setTranscript("");
+    transcriptRef.current = "";
 
     const recognition = createChineseSpeechRecognition({
-      onResult: (text, isFinal) => {
+      onResult: (text) => {
+        transcriptRef.current = text;
         setTranscript(text);
-        if (isFinal && text) {
-          recognitionRef.current?.stop();
-          void sendMessage(text);
-        }
       },
       onError: (message) => {
         setError(message);
@@ -196,14 +200,25 @@ export default function HomePage() {
     recognitionRef.current?.stop();
     setIsListening(false);
 
-    if (transcript.trim()) {
-      void sendMessage(transcript);
+    const spokenText = transcriptRef.current.trim();
+
+    if (spokenText) {
+      void sendMessage(spokenText);
     }
   }
 
   function handleTextSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void sendMessage(inputText);
+  }
+
+  function toggleInputMode() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    }
+
+    setInputMode((mode) => (mode === "voice" ? "text" : "voice"));
   }
 
   function speakAssistantText(text: string) {
@@ -284,7 +299,7 @@ export default function HomePage() {
 
           {messages.length === 0 ? (
             <div className="rounded-[1.4rem] border border-[#d9cbb4] bg-white p-5 text-[1rem] leading-8 text-[#45545f] shadow-sm">
-              您可以点“开始说话”，也可以在下面打字。我会尽量说得简单、慢一点。
+              您可以按住说话，松手后我就会听懂并回复。需要打字时，点底部的切换按钮。
             </div>
           ) : (
             <div className="space-y-4">
@@ -306,13 +321,61 @@ export default function HomePage() {
 
       <footer className="safe-bottom fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[720px] border-t border-[#d9cbb4] bg-[#fffaf0]/95 px-5 pt-4 shadow-[0_-8px_24px_rgba(31,41,51,0.08)] backdrop-blur">
         <div className="space-y-3">
-          <VoiceButton
-            isListening={isListening}
-            disabled={isThinking}
-            unsupported={!speechRecognitionSupported}
-            onStart={startListening}
-            onStop={stopListening}
-          />
+          <div className="grid grid-cols-[4.5rem_1fr] items-stretch gap-3">
+            <button
+              type="button"
+              onClick={toggleInputMode}
+              disabled={isThinking || !speechRecognitionSupported}
+              className="flex min-h-20 flex-col items-center justify-center rounded-[1.2rem] border-2 border-[#126145] bg-white text-[0.9rem] font-bold text-[#126145] disabled:cursor-not-allowed disabled:border-[#c8b8a0] disabled:text-[#655d52]"
+              aria-label={inputMode === "voice" ? "切换到打字输入" : "切换到语音输入"}
+            >
+              <span className="mb-1 flex h-7 w-7 items-center justify-center" aria-hidden="true">
+                {inputMode === "voice" ? (
+                  <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H9l-5 4v-4.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M8 7h8M8 11h5" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M12 4a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3Z" />
+                    <path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v3" strokeLinecap="round" />
+                  </svg>
+                )}
+              </span>
+              {inputMode === "voice" ? "打字" : "语音"}
+            </button>
+
+            {inputMode === "voice" && speechRecognitionSupported ? (
+              <VoiceButton
+                isListening={isListening}
+                disabled={isThinking}
+                unsupported={false}
+                onStart={startListening}
+                onStop={stopListening}
+              />
+            ) : (
+              <form onSubmit={handleTextSubmit} className="grid grid-cols-[1fr_auto] gap-3">
+                <label htmlFor="text-input" className="sr-only">
+                  文字输入
+                </label>
+                <textarea
+                  id="text-input"
+                  value={inputText}
+                  onChange={(event) => setInputText(event.target.value)}
+                  placeholder="输入文字"
+                  rows={2}
+                  className="min-h-20 w-full resize-none rounded-[1.1rem] border-2 border-[#d9cbb4] bg-white px-4 py-3 text-[1rem] leading-7 text-[#1f2933] outline-none focus:border-[#126145]"
+                />
+                <button
+                  type="submit"
+                  disabled={isThinking || !inputText.trim()}
+                  className="min-h-20 rounded-[1.1rem] bg-[#126145] px-5 text-[1.05rem] font-bold text-white disabled:cursor-not-allowed disabled:bg-[#c8b8a0] disabled:text-[#655d52]"
+                >
+                  发送
+                </button>
+              </form>
+            )}
+          </div>
 
           {transcript ? (
             <div className="rounded-[1rem] border border-[#d9cbb4] bg-white px-4 py-3 text-[1rem] leading-7 text-[#1f2933]">
@@ -326,35 +389,13 @@ export default function HomePage() {
             </div>
           ) : null}
 
-          <form onSubmit={handleTextSubmit} className="space-y-3">
-            <label htmlFor="text-input" className="sr-only">
-              文字输入
-            </label>
-            <textarea
-              id="text-input"
-              value={inputText}
-              onChange={(event) => setInputText(event.target.value)}
-              placeholder="也可以在这里输入文字"
-              rows={2}
-              className="w-full resize-none rounded-[1.1rem] border-2 border-[#d9cbb4] bg-white px-4 py-3 text-[1rem] leading-7 text-[#1f2933] outline-none focus:border-[#126145]"
-            />
-            <div className="grid grid-cols-[1fr_auto] gap-3">
-              <button
-                type="submit"
-                disabled={isThinking || !inputText.trim()}
-                className="min-h-16 rounded-[1.1rem] bg-[#126145] px-5 text-[1.05rem] font-bold text-white disabled:cursor-not-allowed disabled:bg-[#c8b8a0] disabled:text-[#655d52]"
-              >
-                发送文字
-              </button>
-              <button
-                type="button"
-                onClick={handleClearMessages}
-                className="min-h-16 rounded-[1.1rem] border-2 border-[#b93815] bg-white px-4 text-[1rem] font-bold text-[#b93815]"
-              >
-                清空
-              </button>
-            </div>
-          </form>
+          <button
+            type="button"
+            onClick={handleClearMessages}
+            className="min-h-12 w-full rounded-[1rem] border-2 border-[#b93815] bg-white px-4 text-[1rem] font-bold text-[#b93815]"
+          >
+            清空聊天
+          </button>
         </div>
       </footer>
     </main>
