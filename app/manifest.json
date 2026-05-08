@@ -1,0 +1,18 @@
+{
+  "name": "银龄语音陪伴助手",
+  "short_name": "语音陪伴",
+  "description": "适合老年人使用的中文语音陪伴助手",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fffaf0",
+  "theme_color": "#126145",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

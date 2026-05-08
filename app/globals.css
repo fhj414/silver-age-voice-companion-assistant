@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #fffaf0;
+  --foreground: #1f2933;
+  --primary: #126145;
+  --primary-strong: #0b4a34;
+  --accent: #b93815;
+  --surface: #ffffff;
+  --surface-warm: #fff3d9;
+  --border: #d9cbb4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 18px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 240, 0.96), rgba(241, 249, 244, 0.96)),
+    var(--background);
+  color: var(--foreground);
+  font-family: Arial, "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+.senior-mode {
+  font-size: 21px;
+  --background: #fffdf6;
+  --foreground: #101820;
+  --primary: #004f35;
+  --primary-strong: #003b28;
+  --accent: #9f2607;
+  --border: #9f8f75;
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
